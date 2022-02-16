@@ -1,3 +1,0 @@
-LIBRARY InjectionDLL
-EXPORTS
-Connect @ 1
